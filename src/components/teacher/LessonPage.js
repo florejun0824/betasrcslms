@@ -1,14 +1,14 @@
 // src/components/teacher/LessonPage.js
 import React, { useState, useEffect, useRef } from 'react';
 import ContentRenderer from './ContentRenderer';
-import { generateImage } from '../../services/aiService';
+// import { generateImage } from '../../services/aiService'; // REMOVE THIS LINE
 import { SparklesIcon, CheckCircleIcon, ArrowUturnLeftIcon, PlusIcon, MinusIcon, TrashIcon } from '@heroicons/react/24/solid';
 
 // A simple spinner component for the loading state
 const ImageLoadingSpinner = () => (
   <div className="flex flex-col items-center justify-center p-8 bg-slate-100 rounded-lg min-h-[300px] my-4">
     <SparklesIcon className="h-12 w-12 text-blue-500 animate-pulse" />
-    <p className="mt-4 text-slate-600 font-semibold">Generating high-quality diagram...</p>
+    <p className="mt-4 text-slate-600 font-semibold">Loading diagram...</p> {/* Changed text */}
   </div>
 );
 
@@ -18,7 +18,7 @@ const ImageLoadingSpinner = () => (
  */
 const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
   const [imageUrl, setImageUrl] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Keep isLoading for initial image load
   const [error, setError] = useState(null);
   
   const [diagramData, setDiagramData] = useState(null);
@@ -41,13 +41,14 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
       }
     }
     
+    // Set image URL if available
     setImageUrl(pageContent?.generatedImageUrl || null);
-    setIsLoading(false);
+    
+    // If there's an image URL, we're loading it, otherwise, no image to load/generate
+    setIsLoading(!!pageContent?.generatedImageUrl && !imageUrl); // Set loading if URL exists but image isn't loaded yet
     setError(null);
     setDiagramData(pageContent || null);
     
-    // ✅ FIX: Automatically enter edit mode if the component is designated as editable.
-    // This makes the diagram labels interactive as soon as the modal opens.
     if (isEditable) {
         setIsEditing(true);
     }
@@ -61,24 +62,44 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
       });
       setLabels(initialLabels);
       
+      // REMOVE THE FOLLOWING BLOCK THAT CALLS generateImage
+      // if (!pageContent.generatedImageUrl) {
+      //   const fetchImage = async () => {
+      //     setIsLoading(true);
+      //     try {
+      //       const url = await generateImage(pageContent.diagram_prompt);
+      //       setImageUrl(url);
+      //       if (isEditable) setIsEditing(true); 
+      //     } catch (err) {
+      //       setError("Sorry, the diagram could not be generated.");
+      //     } finally {
+      //       setIsLoading(false);
+      //     }
+      //   };
+      //   fetchImage();
+      // }
+      // If there's no generatedImageUrl, and we're in diagram-data mode, 
+      // it means there's no image to display, so set error.
       if (!pageContent.generatedImageUrl) {
-        const fetchImage = async () => {
-          setIsLoading(true);
-          try {
-            const url = await generateImage(pageContent.diagram_prompt);
-            setImageUrl(url);
-            // This is still needed for the very first time an image is generated in the preview modal
-            if (isEditable) setIsEditing(true); 
-          } catch (err) {
-            setError("Sorry, the diagram could not be generated.");
-          } finally {
-            setIsLoading(false);
-          }
-        };
-        fetchImage();
+          setError("No diagram image available for this page.");
+          setIsLoading(false); // No image to load
       }
     }
-  }, [page, isEditable]);
+  }, [page, isEditable]); // Removed imageUrl from dependency array as it can cause loop
+
+  // Add an effect to handle when the image finishes loading from the URL
+  useEffect(() => {
+    if (imageUrl) {
+        const img = new Image();
+        img.src = imageUrl;
+        img.onload = () => setIsLoading(false);
+        img.onerror = () => {
+            setError("Failed to load diagram image.");
+            setIsLoading(false);
+        };
+    }
+  }, [imageUrl]);
+
 
   const handleMouseDown = (index, part) => (e) => {
     e.preventDefault();
@@ -161,6 +182,7 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
   const handleFinalize = () => {
     setIsEditing(false);
     setSelectedLabelIndex(null);
+    // When finalizing, we ensure generatedImageUrl is always the source for the diagram
     onFinalizeDiagram({ ...diagramData, labels: labels, generatedImageUrl: imageUrl });
   };
   
@@ -186,7 +208,7 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
           {isLoading && <ImageLoadingSpinner />}
           {error && <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg">{error}</div>}
           
-          {imageUrl && diagramData && (
+          {imageUrl && diagramData && ( // Only render if imageUrl exists
             <div 
               className="relative w-full max-w-3xl mx-auto"
               ref={imageContainerRef}
@@ -226,7 +248,7 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
               </div>
             </div>
           )}
-          {isEditable && <div className="flex justify-center items-center flex-wrap gap-3 mt-4">
+          {isEditable && imageUrl && <div className="flex justify-center items-center flex-wrap gap-3 mt-4"> {/* Only show edit buttons if imageUrl exists */}
             {selectedLabelIndex !== null && isEditing && (
                 <div className="flex items-center gap-1 p-1 bg-slate-200 rounded-lg">
                     <button onClick={() => handleFontSizeChange(-1)} className="px-2 py-1 bg-white rounded shadow hover:bg-slate-100"><MinusIcon className="h-4 w-4"/></button>
@@ -245,7 +267,7 @@ const LessonPage = ({ page, isEditable, onFinalizeDiagram, isFinalizing }) => {
                 </button>
               </div>
             ) : (
-              imageUrl && <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600">
+              <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600">
                 <ArrowUturnLeftIcon className="h-5 w-5" /> Re-edit Labels
               </button>
             )}
