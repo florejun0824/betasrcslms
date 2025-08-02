@@ -133,18 +133,33 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
         if (selectedUnitIds.size === 0) {
             return { title: '', content: '', lessonTitles: [], error: "Please select at least one source unit." };
         }
+
         const unitDetails = Array.from(selectedUnitIds)
             .map(id => unitsForSubject.find(u => u.id === id))
             .filter(Boolean);
+        
         const title = unitDetails.map(u => u.title).join(' & ');
+        
+        let formattedLessonList = [];
+        unitDetails.forEach(unit => {
+            formattedLessonList.push(`Unit: ${unit.title}`);
+            const relevantLessons = lessonsForUnit.filter(lesson => lesson.unitId === unit.id);
+            relevantLessons.forEach(lesson => {
+                formattedLessonList.push(`- ${lesson.title}`);
+            });
+        });
+
         const relevantLessons = lessonsForUnit.filter(lesson => selectedUnitIds.has(lesson.unitId));
-        const lessonTitles = relevantLessons.map(lesson => lesson.title);
+        const lessonTitles = formattedLessonList;
+        
         const content = relevantLessons
             .map(l => l.pages.map(p => p.content).join('\n'))
             .join('\n\n---\n\n');
+        
         if (!content && generationTarget === 'teacherGuide') {
             return { title, content: '', lessonTitles, error: `The selected unit(s) '${title}' appear to have no lesson content.`};
         }
+        
         return { title, content, lessonTitles, error: null };
     }, [selectedUnitIds, unitsForSubject, lessonsForUnit, generationTarget]);
 
@@ -180,7 +195,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
                 - **Performance Standard:** ${inputs.performanceStandard}
                 - **Learning Competencies:**
                     ${inputs.learningCompetencies}
-                - **Lesson Titles from Source:** ${sourceInfo.lessonTitles.join(', ')}
+                - **Lesson Titles from Source:** ${sourceInfo.lessonTitles.join('\n')}
                 - **Source Content:** [Content is provided for context. Do NOT quote directly in the output.]
                 - **Language Requirement:** You MUST generate the entire response exclusively in the following language: ${selectedLanguage}.
 
@@ -191,7 +206,7 @@ export default function CreateUlpModal({ isOpen, onClose, unitId: initialUnitId,
 
                 **ULP STRUCTURE AND CONTENT (IN ORDER):**
                 1.  **Explore Stage:** You MUST structure this stage in the following exact order:
-                    * **Lessons List:** Start by listing the exact lesson titles provided in the 'Lesson Titles from Source' input. Do not invent or change them.
+                    * **Lessons List:** Start by listing the exact lesson titles provided in the 'Lesson Titles from Source' input. Do not invent or change them. Note: If multiple units are selected, the list will include unit headers.
                     * **Unit Overview:** Provide an engaging and catchy overview of the unit's purpose.
                     * **Hooked Activities:** Design engaging activities to capture student interest.
                     * **Map of Conceptual Change:** Create an activity for students to map their prior or new knowledge (e.g., a K-W-L chart).
