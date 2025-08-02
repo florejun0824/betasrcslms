@@ -8,7 +8,7 @@ import LessonPage from './LessonPage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useToast } from '../../contexts/ToastContext';
-import { uploadImageBlob } from '../../services/storageService'; // Make sure this path is correct
+import { uploadImageBlob } from '../../services/storageService';
 
 // --- Animation variants for page transitions ---
 const pageVariants = {
@@ -53,10 +53,8 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate }) {
         setCurrentLesson(lesson);
     }, [lesson]);
 
-    // ✅ FIX: Handle both new (lessonTitle) and old (title) data structures.
     const lessonTitle = currentLesson?.lessonTitle || currentLesson?.title || 'Lesson';
     const pages = currentLesson?.pages || [];
-    // ✅ FIX: Handle both new (learningObjectives) and old (objectives) data structures.
     const objectives = currentLesson?.learningObjectives || currentLesson?.objectives || [];
     const totalPages = pages.length;
     const objectivesLabel = currentLesson?.language === 'Filipino' ? "Mga Layunin sa Pagkatuto" : "Learning Objectives";
@@ -81,23 +79,20 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate }) {
         }
     }, [isOpen]);
     
-    // ✅ FIX: Updated function to handle permanent image storage on finalization.
+    // ✅ MODIFIED: This function now saves diagram data without re-uploading external images.
     const handleFinalizeDiagram = async (pageIndex, finalizedContent) => {
         if (isFinalizing) return;
         setIsFinalizing(true);
         showToast("Finalizing diagram...", "info");
 
         try {
+            // The content already includes the external URL. We will save it directly.
             let contentToSave = { ...finalizedContent };
-            const imageUrl = contentToSave.generatedImageUrl;
 
-            if (imageUrl && !imageUrl.includes('firebasestorage.googleapis.com')) {
-                showToast("Uploading diagram to your storage...", "info");
-                const response = await fetch(imageUrl);
-                const imageBlob = await response.blob();
-                const permanentUrl = await uploadImageBlob(imageBlob);
-                contentToSave.generatedImageUrl = permanentUrl;
-            }
+            // The block that checked for and re-uploaded non-Firebase images has been removed.
+            // This ensures that if `generatedImageUrl` is an external URL, it will be saved as-is.
+            // If the image was AI-generated and has a temporary URL, you may still want to upload it.
+            // For this implementation, we assume any existing URL is what you want to keep.
 
             const updatedPages = currentLesson.pages.map((page, index) =>
                 index === pageIndex ? { ...page, content: JSON.stringify(contentToSave) } : page
@@ -167,7 +162,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate }) {
 
                 <div className="flex justify-between items-center p-4 sm:p-5 border-b border-slate-200 flex-shrink-0">
                     <div className="flex items-center gap-4 overflow-hidden">
-                        {/* ✅ FIX: Use the safe lessonTitle variable */}
                         <Dialog.Title className="text-lg sm:text-xl font-bold text-slate-800 truncate">{lessonTitle}</Dialog.Title>
                         {currentLesson.studyGuideUrl && (
                              <a href={currentLesson.studyGuideUrl} download target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 whitespace-nowrap">
@@ -218,7 +212,6 @@ export default function ViewLessonModal({ isOpen, onClose, lesson, onUpdate }) {
                                     page={pageData} 
                                     isEditable={true}
                                     onFinalizeDiagram={(finalizedContent) => handleFinalizeDiagram(currentPage, finalizedContent)}
-                                    // ✅ FIX: Pass the isFinalizing prop down to the LessonPage component
                                     isFinalizing={isFinalizing}
                                 />
                             ) : (
